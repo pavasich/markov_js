@@ -51,6 +51,8 @@ Array.prototype.shuffle = function() {
 function Markov() {
 
   // privates
+  var starts = {};
+  var terminals = {};
   var chains = {};
   var finalized = false;
 
@@ -85,8 +87,11 @@ function Markov() {
     if (finalized)
       throw "Markov: forgot how to read after finalize was called"
 
+//    text = text.split('.');
+
+//    starts[text[0]] = 1;
     text = text.split(' ');
-    for (var i = 0; i < text.length; i++)
+    for (var i = 1; i < text.length; i++)
       if (text[i] == '')
         text.pop(i);
 
@@ -287,17 +292,16 @@ function NormalizedArray() {
 window.onload = function() {
   var text = document.createElement('div');
   text.class = '.text';
-
-  $.ajax({
-    url: "shake.txt",
-    dataType: "text",
-    success: function(data) {
-      $(".text").html(data);
-    }
-  });
+  console.log('starting ajax');
   var markov = new MarkovComp();
   var markovParent = document.getElementById('output');
-  markov.init(markovParent, text.innerHTML);
+  $.ajax({
+    url: "http://localhost:3000/src/shake.txt",
+    dataType: "text",
+    success: function(data) {
+      markov.init(markovParent, data)
+    }
+  });
 
   var btn = document.getElementById('submit-text');
   btn.addEventListener('click', function() {
@@ -323,6 +327,9 @@ function MarkovComp() {
     selector.appendChild(domElement);
 
     initialized = true;
+    console.log('initialied component');
+    var d = markov.ramble(400);
+    domElement.innerHTML = d;
   }
 
   this.render = function() {
