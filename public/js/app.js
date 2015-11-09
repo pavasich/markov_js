@@ -32,7 +32,7 @@
 */
 
 // Toggle auto-test. true runs, anything else does not
-var TESTING = true;
+var TESTING = false;
 
 /* shuffle prototype
      an implementation of the Durstenfeld shuffle
@@ -47,17 +47,29 @@ Array.prototype.shuffle = function() {
   }
 }
 
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+  var rest = this.slice((to || from) + 1 || this.length);
+  this.length = from < 0 ? this.length + from : from;
+  return this.push.apply(this, rest);
+};
+var starts = {};
+var terminals = {};
+var chains = {};
 /////////////////////////////////////////////////                         Markov
 function Markov() {
 
   // privates
-  var starts = {};
-  var terminals = {};
-  var chains = {};
+
   var finalized = false;
+  var keys = Object.keys(starts);
 
   var readPair = function(word1, word2) {
     // if a chain exists, update it
+    if (word1 == undefined || word2 == undefined ||
+        word1.length == 0  || word2.length == 0)
+        return
+
     if (chains[word1] != undefined)
       chains[word1].addWord(word2);
 
@@ -87,17 +99,14 @@ function Markov() {
     if (finalized)
       throw "Markov: forgot how to read after finalize was called"
 
-//    text = text.split('.');
-
-//    starts[text[0]] = 1;
-    text = text.split(' ');
-    for (var i = 1; i < text.length; i++)
-      if (text[i] == '')
-        text.pop(i);
-
-    for(var i = 0; i < text.length-1; i++)
-
-      readPair(text[i], text[i+1]);
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].split(' ');
+      starts[line[0]] = 1;
+      terminals[line[line.length-1]] = 1;
+      for (var j = 0; j < line.length-1; j++)
+        readPair(line[j], line[j+1])
+    }
   }
 
   /* finalize() => normalize chains and generate ouput
@@ -132,7 +141,7 @@ function Markov() {
       throw "Markov: can't call next before finalize is called"
 
     var ls = this.out[word];
-    if (ls.length === 0) {
+    if (ls == undefined || ls.length === 0) {
       return false;
     }
     var stop = Math.random();
@@ -143,7 +152,7 @@ function Markov() {
     }
 
     if (sum < stop) {
-      console.log('next failed; returning random');
+      // console.log('next failed; returning random');
       ls.shuffle();
       return ls[0][0];
     }
@@ -151,32 +160,33 @@ function Markov() {
       return ls[ls.length-1][0];
   }
 
+  var genSentence = function(sentence) {
+    if (sentence == undefined) console.log('Whyyyyy')
+    var nextWord = this.next(sentence[sentence.length-1]);
+
+    if (nextWord === undefined)
+      if (sentence.length < 3)
+        return genSentence(keys[parseInt(Math.random() * starts.length)]);
+      else
+        return ' '.join(sentence);
+
+    if (sentence.length >= 3 && terminals[nextWord] == 1)
+      return ' '.join(sentence);
+    else{
+      sentence.push(nextWord);
+      return genSentence(sentence);
+    }
+  }
+
   this.ramble = function(limit) {
     if (finalized !== true)
       throw "Markov: can't ramble before finalize is called";
 
-    var keys = Object.keys(this.out);
-    var i = parseInt(keys.length * Math.random());
-
-    var sentence = keys[i];
-    var nextWord = keys[i];
-    for (var j = 0; j < limit; j++) {
-
-      nextWord = this.next(nextWord);
-      if (nextWord === false)
-        return sentence;
-
-      // log play characters here
-      console.log(nextWord);
-      if (nextWord == nextWord.toUpperCase() && nextWord.trim() != 'I'
-                                             && nextWord.trim() != 'O'
-                                             && nextWord.trim() != 'A')
-        sentence += '<br><br>' + nextWord + '<br>';
-      else
-        sentence += ' ' + nextWord;
-    }
-    return sentence;
+    var output = '';
+    for (var j = 0; j < limit; j++)
+      output += genSentence(keys[parseInt(Math.random() * starts.length)])
   }
+  return output;
 }
 /////////////////////////////////////////////////                     END Markov
 
@@ -296,7 +306,7 @@ window.onload = function() {
   var markov = new MarkovComp();
   var markovParent = document.getElementById('output');
   $.ajax({
-    url: "http://localhost:3000/src/shake.txt",
+    url: "http://localhost:3000/src/sci-fi.txt",
     dataType: "text",
     success: function(data) {
       markov.init(markovParent, data)
@@ -328,12 +338,12 @@ function MarkovComp() {
 
     initialized = true;
     console.log('initialied component');
-    var d = markov.ramble(400);
+    var d = markov.ramble(5);
     domElement.innerHTML = d;
   }
 
   this.render = function() {
-    var text = markov.ramble(400);
+    var text = markov.ramble(5);
     domElement.innerHTML = text;
   }
 }
